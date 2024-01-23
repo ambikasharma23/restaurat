@@ -1,8 +1,12 @@
-// Import required modules
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const routes = require('./route'); // Assuming you have a 'routes.js' file
+const jwt = require('jsonwebtoken');
+const routes = require('./route');
+const { sequelize } = require('./database/connection');
+
+// Load environment variables from .env file
+require('dotenv').config();
 
 // Create an Express application
 const app = express();
@@ -11,36 +15,38 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// Middleware for token-based authentications
+// Middleware for token-based authentication
 app.use((req, res, next) => {
-    // extract the token from the request header
-    const token = req.headers.authorization;
+  // Extract the token from the request header
+  const token = req.headers.authorization;
 
-    // verify the token
-    jwt.verify(token, 'your-secret-key', (err, decoded) => {
-        if (err) {
-            // Token is invalid or expired
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+  // Verify the token using the access token secret from process.env
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      // Token is invalid or expired
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-        // Attach the decoded payload to the request object for later use
-        req.user = decoded;
+    // Attach the decoded payload to the request object for later use
+    req.user = decoded;
 
-        // Continue to the next middleware or route handler
-        next();
-    });
+    // Continue to the next middleware or route handler
+    next();
+  });
 });
 
 // Routes
-app.use('/api', routes); // Assuming your API routes are prefixed with '/api'
+app.use('/api', routes);
 
 // Define a default route
-app.get('/', (req, res) => {
+app.get('/hello', (req, res) => {
   res.send('Welcome to the Restaurant Booking API!');
 });
 
-// Start the server
+// Sync Sequelize models with the database and start the server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+sequelize.sync().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
 });
